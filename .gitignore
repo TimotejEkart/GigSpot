@@ -1,0 +1,23 @@
+# odvisnosti
+node_modules/
+
+# okoljske spremenljivke
+.env
+.env.*
+!.env.example
+
+# zgradbe
+dist/
+build/
+coverage/
+
+# dnevniki in predpomnilnik
+*.log
+.npm
+*.tsbuildinfo
+
+# OS in uredniki
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
