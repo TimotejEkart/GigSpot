@@ -37,3 +37,5 @@ Mape `frontend/` in `backend/` sta za zdaj prazni.
 ## Razvoj
 Delamo po GitHub Flow. Spremembe gredo na lastno vejo, v `main` pa samo prek pull requesta.
 
+Veja `main` je zaščitena, force push in brisanje veje sta onemogočena.
+
