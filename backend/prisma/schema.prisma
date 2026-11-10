@@ -1,0 +1,198 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Vloga {
+  OBISKOVALEC
+  GLASBENIK
+  ORGANIZATOR
+  ADMIN
+
+  @@map("vloga")
+}
+
+enum VlogaVBendu {
+  VODJA
+  CLAN
+
+  @@map("vloga_v_bendu")
+}
+
+enum StatusClana {
+  POVABLJEN
+  AKTIVEN
+
+  @@map("status_clana")
+}
+
+enum NacinPlacila {
+  HONORAR
+  DELITEV_VSTOPNINE
+  BREZ
+
+  @@map("nacin_placila")
+}
+
+enum StatusTermina {
+  ODPRT
+  ZAPRT
+  OBJAVLJEN
+  IZVEDEN
+  ODPOVEDAN
+
+  @@map("status_termina")
+}
+
+enum StatusPrijave {
+  ODDANA
+  OZJI_IZBOR
+  SPREJETA
+  ZAVRNJENA
+  UMAKNJENA
+  ODPOVEDANA
+
+  @@map("status_prijave")
+}
+
+model Uporabnik {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  gesloHash    String   @map("geslo_hash")
+  prikaznoIme  String   @map("prikazno_ime")
+  telefon      String?
+  vloga        Vloga    @default(OBISKOVALEC)
+  ustvarjeno   DateTime @default(now())
+  posodobljeno DateTime @updatedAt
+
+  clanstva   ClanBenda[]
+  prizorisca Prizorisce[]
+
+  @@map("uporabniki")
+}
+
+model Bend {
+  id              Int      @id @default(autoincrement())
+  ime             String
+  mesto           String
+  opis            String?
+  tehnicneZahteve String?  @map("tehnicne_zahteve")
+  ustvarjeno      DateTime @default(now())
+  posodobljeno    DateTime @updatedAt
+
+  clani   ClanBenda[]
+  prijave Prijava[]
+  zanri   ZanrBenda[]
+
+  @@map("bendi")
+}
+
+model ClanBenda {
+  bendId      Int         @map("bend_id")
+  uporabnikId Int         @map("uporabnik_id")
+  vlogaVBendu VlogaVBendu @default(CLAN) @map("vloga_v_bendu")
+  status      StatusClana @default(POVABLJEN)
+
+  bend      Bend      @relation(fields: [bendId], references: [id], onDelete: Cascade)
+  uporabnik Uporabnik @relation(fields: [uporabnikId], references: [id], onDelete: Cascade)
+
+  @@id([bendId, uporabnikId])
+  @@index([uporabnikId])
+  @@map("clani_benda")
+}
+
+model Prizorisce {
+  id             Int      @id @default(autoincrement())
+  lastnikId      Int      @map("lastnik_id")
+  ime            String
+  mesto          String
+  naslov         String
+  kapaciteta     Int?
+  kontaktTelefon String?  @map("kontakt_telefon")
+  kontaktEmail   String?  @map("kontakt_email")
+  ustvarjeno     DateTime @default(now())
+  posodobljeno   DateTime @updatedAt
+
+  lastnik Uporabnik @relation(fields: [lastnikId], references: [id])
+  termini Termin[]
+
+  @@index([lastnikId])
+  @@map("prizorisca")
+}
+
+model Termin {
+  id           Int           @id @default(autoincrement())
+  prizorisceId Int           @map("prizorisce_id")
+  datum        DateTime      @db.Date
+  stBendov     Int           @map("st_bendov")
+  nacinPlacila NacinPlacila  @map("nacin_placila")
+  znesek       Decimal?      @db.Decimal(10, 2)
+  rokPrijave   DateTime      @map("rok_prijave")
+  status       StatusTermina @default(ODPRT)
+  ustvarjeno   DateTime      @default(now())
+  posodobljeno DateTime      @updatedAt
+
+  prizorisce Prizorisce    @relation(fields: [prizorisceId], references: [id])
+  prijave    Prijava[]
+  zanri      ZanrTermina[]
+
+  @@index([prizorisceId])
+  @@index([status, datum])
+  @@map("termini")
+}
+
+model Prijava {
+  id           Int           @id @default(autoincrement())
+  terminId     Int           @map("termin_id")
+  bendId       Int           @map("bend_id")
+  sporocilo    String?
+  status       StatusPrijave @default(ODDANA)
+  ustvarjeno   DateTime      @default(now())
+  posodobljeno DateTime      @updatedAt
+
+  termin Termin @relation(fields: [terminId], references: [id])
+  bend   Bend   @relation(fields: [bendId], references: [id])
+
+  @@unique([terminId, bendId])
+  @@index([bendId])
+  @@map("prijave")
+}
+
+model Zanr {
+  id  Int    @id @default(autoincrement())
+  ime String @unique
+
+  bendi   ZanrBenda[]
+  termini ZanrTermina[]
+
+  @@map("zanri")
+}
+
+model ZanrBenda {
+  bendId Int @map("bend_id")
+  zanrId Int @map("zanr_id")
+
+  bend Bend @relation(fields: [bendId], references: [id], onDelete: Cascade)
+  zanr Zanr @relation(fields: [zanrId], references: [id], onDelete: Cascade)
+
+  @@id([bendId, zanrId])
+  @@index([zanrId])
+  @@map("zanri_bendov")
+}
+
+model ZanrTermina {
+  terminId Int @map("termin_id")
+  zanrId   Int @map("zanr_id")
+
+  termin Termin @relation(fields: [terminId], references: [id], onDelete: Cascade)
+  zanr   Zanr   @relation(fields: [zanrId], references: [id], onDelete: Cascade)
+
+  @@id([terminId, zanrId])
+  @@index([zanrId])
+  @@map("zanri_terminov")
+}

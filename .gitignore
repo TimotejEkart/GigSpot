@@ -21,3 +21,6 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+
+# generiran Prisma client
+backend/src/generated/

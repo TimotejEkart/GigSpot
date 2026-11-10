@@ -85,6 +85,8 @@ Par `termin_id` in `bend_id` je unikaten, zato se bend na isti termin lahko prij
 
 Žanri so z bendi povezani prek tabele `zanri_bendov`, s termini pa prek tabele `zanri_terminov`. Obe vsebujeta le tuja ključa.
 
+Tabele `uporabniki`, `bendi`, `prizorisca`, `termini` in `prijave` imajo še polji `ustvarjeno` in `posodobljeno`, ki ju baza oziroma Prisma nastavi sama.
+
 ## Povezave med entitetami
 
 - **Uporabnik in bend (M:N prek `clani_benda`)**: uporabnik je lahko član več bendov, bend pa ima več članov.
