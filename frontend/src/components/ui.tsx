@@ -36,13 +36,18 @@ export function Select({ label, options }: { label: string; options: string[] })
   )
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, napaka, children }: { label: string; napaka?: string; children: ReactNode }) {
   return (
     <label className="block text-sm">
       <span className="mb-1.5 block font-medium">{label}</span>
       {children}
+      {napaka && <span className="mt-1 block text-xs text-red-600">{napaka}</span>}
     </label>
   )
+}
+
+export function Opozorilo({ children }: { children: ReactNode }) {
+  return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{children}</div>
 }
 
 export const inputClass =

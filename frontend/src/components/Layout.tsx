@@ -1,18 +1,37 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import ApiStatus from './ApiStatus'
+import { useAuth } from '../auth/kontekst'
+import type { Vloga } from '../lib/api'
 
-const links = [
+const links: { to: string; label: string; vloge?: Vloga[] }[] = [
   { to: '/', label: 'Koncerti' },
-  { to: '/termini', label: 'Termini' },
-  { to: '/bendi', label: 'Moji bendi' },
-  { to: '/prizorisca', label: 'Prizorišča' },
+  { to: '/termini', label: 'Termini', vloge: ['GLASBENIK', 'ORGANIZATOR'] },
+  { to: '/bendi', label: 'Moji bendi', vloge: ['GLASBENIK'] },
+  { to: '/prizorisca', label: 'Prizorišča', vloge: ['ORGANIZATOR'] },
 ]
+
+const imenaVlog: Record<Vloga, string> = {
+  OBISKOVALEC: 'obiskovalec',
+  GLASBENIK: 'glasbenik',
+  ORGANIZATOR: 'organizator',
+  ADMIN: 'admin',
+}
 
 function navClass({ isActive }: { isActive: boolean }) {
   return isActive ? 'text-ink' : 'text-muted hover:text-ink'
 }
 
 export default function Layout() {
+  const { uporabnik, nalagam, odjava } = useAuth()
+  const navigate = useNavigate()
+
+  const vidni = links.filter((l) => !l.vloge || (uporabnik && l.vloge.includes(uporabnik.vloga)))
+
+  async function odjavi() {
+    navigate('/')
+    await odjava()
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-line bg-card">
@@ -21,22 +40,35 @@ export default function Layout() {
             Gig<span className="text-accent">Spot</span>
           </Link>
           <nav className="flex gap-6 text-sm font-medium">
-            {links.map((l) => (
+            {vidni.map((l) => (
               <NavLink key={l.to} to={l.to} end={l.to === '/'} className={navClass}>
                 {l.label}
               </NavLink>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <Link to="/prijava" className="text-muted hover:text-ink">
-              Prijava
-            </Link>
-            <Link
-              to="/registracija"
-              className="rounded-md bg-ink px-3 py-1.5 font-medium text-paper hover:bg-ink/85"
-            >
-              Registracija
-            </Link>
+            {nalagam ? null : uporabnik ? (
+              <>
+                <span className="text-muted">
+                  <span className="font-medium text-ink">{uporabnik.prikaznoIme}</span> · {imenaVlog[uporabnik.vloga]}
+                </span>
+                <button onClick={odjavi} className="rounded-md border border-line px-3 py-1.5 hover:bg-paper">
+                  Odjava
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/prijava" className="text-muted hover:text-ink">
+                  Prijava
+                </Link>
+                <Link
+                  to="/registracija"
+                  className="rounded-md bg-ink px-3 py-1.5 font-medium text-paper hover:bg-ink/85"
+                >
+                  Registracija
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
