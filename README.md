@@ -28,11 +28,72 @@ Projekt nastaja v okviru predmeta Razvoj informacijskih rešitev in storitev (FE
 
 ```
 frontend/    odjemalec (React)
-backend/     REST API (Express)
+backend/     REST API (Express, Prisma)
 docs/        dokumentacija, wireframi in ADR
 ```
 
-Mape `frontend/` in `backend/` sta za zdaj prazni.
+## Lokalni zagon
+
+Potrebuješ [Node.js](https://nodejs.org/) (20 ali novejši) in [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+### 1. Nastavitve
+
+V korenu projekta in v mapi `backend` skopiraj `.env.example` v `.env`:
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+```
+
+V `backend/.env` nastavi `JWT_SECRET` na dolg naključen niz, npr. izpis tega ukaza:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Geslo baze je v obeh `.env` datotekah privzeto `spremeni-me`. Če ga spremeniš, ga spremeni na obeh mestih (`POSTGRES_PASSWORD` in `DATABASE_URL`).
+
+### 2. Baza
+
+Docker Desktop mora biti zagnan.
+
+```bash
+docker compose up -d
+```
+
+### 3. Backend
+
+```bash
+cd backend
+npm install
+npx prisma migrate dev
+npm run db:seed
+npm run dev
+```
+
+Backend teče na http://localhost:3000. Migracija ustvari tabele, seed pa doda žanre in testne uporabnike.
+
+### 4. Frontend
+
+V novem terminalu:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aplikacija je na http://localhost:5173.
+
+### Testni računi
+
+Vsi imajo geslo `geslo123`.
+
+| E-naslov | Vloga |
+|----------|-------|
+| glasbenik@gigspot.test | glasbenik |
+| organizator@gigspot.test | organizator |
+| obiskovalec@gigspot.test | obiskovalec |
 
 ## Razvoj
 Delamo po GitHub Flow. Spremembe gredo na lastno vejo, v `main` pa samo prek pull requesta.
