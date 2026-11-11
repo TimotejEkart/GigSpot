@@ -38,13 +38,14 @@ Uporabljamo PostgreSQL. Shemo vodimo v Prismi, spremembe pa uvajamo z migracijam
 docker compose up -d
 
 # 2. backend
-cd server
+cd backend
 npm install
 npx prisma migrate dev
+npm run db:seed
 npm run dev                # http://localhost:3000
 
 # 3. frontend (v novem terminalu)
-cd client
+cd frontend
 npm install
 npm run dev                # http://localhost:5173
 ```
