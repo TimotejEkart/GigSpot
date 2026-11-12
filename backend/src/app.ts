@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth";
 import { prizoriscaRouter } from "./routes/prizorisca";
 import { bendiRouter } from "./routes/bendi";
 import { zanriRouter } from "./routes/zanri";
+import { terminiRouter } from "./routes/termini";
 import { obravnavaNapak } from "./middleware/napake";
 
 export const app = express();
@@ -22,6 +23,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/venues", prizoriscaRouter);
 app.use("/api/bands", bendiRouter);
 app.use("/api/genres", zanriRouter);
+app.use("/api/slots", terminiRouter);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ napaka: "Ta pot ne obstaja." });
