@@ -15,6 +15,14 @@ export const requireAuth: RequestHandler = (req, res, next) => {
   next();
 };
 
+// Prebere uporabnika, če je prijavljen, sicer nadaljuje brez njega (za javne strani).
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const token: string | undefined = req.cookies?.[PISKOTEK];
+  const uporabnik = token ? preveriToken(token) : null;
+  if (uporabnik) req.uporabnik = uporabnik;
+  next();
+};
+
 // Uporablja se za requireAuth, npr. router.post("/", requireAuth, requireRole("ORGANIZATOR"), ...)
 export function requireRole(...vloge: Vloga[]): RequestHandler {
   return (req, res, next) => {
