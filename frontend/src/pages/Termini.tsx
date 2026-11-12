@@ -1,6 +1,13 @@
 import { Empty, PageTitle, Select } from '../components/ui'
+import { useAuth } from '../auth/kontekst'
+import MojiTermini from './MojiTermini'
 
 export default function Termini() {
+  const { uporabnik } = useAuth()
+
+  // organizator na tej strani upravlja svoje termine, glasbenik išče proste termine
+  if (uporabnik?.vloga === 'ORGANIZATOR') return <MojiTermini />
+
   return (
     <>
       <PageTitle
