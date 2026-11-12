@@ -112,6 +112,68 @@ terminiRouter.post("/", requireAuth, requireRole("ORGANIZATOR"), async (req, res
   res.status(201).json({ termin: zaOdjemalca(termin, true) });
 });
 
+const iskanjeShema = z.object({
+  mesto: z.string().trim().max(60).optional(),
+  od: z.iso.date("Neveljaven datum.").optional(),
+  do: z.iso.date("Neveljaven datum.").optional(),
+  bandId: z.coerce.number().int().positive().optional(),
+});
+
+// iskanje odprtih terminov (US-03): samo ODPRT in rok še ni potekel,
+// termini z žanrom izbranega benda so na vrhu in označeni z ujemaSe
+terminiRouter.get("/", requireAuth, requireRole("GLASBENIK", "ORGANIZATOR"), async (req, res) => {
+  const filtri = iskanjeShema.parse(req.query);
+
+  let zanriBenda: number[] = [];
+  if (filtri.bandId) {
+    const clanstvo = await prisma.clanBenda.findUnique({
+      where: { bendId_uporabnikId: { bendId: filtri.bandId, uporabnikId: req.uporabnik!.id } },
+      include: { bend: { include: { zanri: true } } },
+    });
+    if (!clanstvo || clanstvo.status !== "AKTIVEN") {
+      throw new HttpNapaka(403, "Izbrani bend ni tvoj.");
+    }
+    zanriBenda = clanstvo.bend.zanri.map((z) => z.zanrId);
+  }
+
+  const odprti = { status: "ODPRT" as const, rokPrijave: { gt: new Date() } };
+
+  const termini = await prisma.termin.findMany({
+    where: {
+      ...odprti,
+      ...(filtri.mesto ? { prizorisce: { mesto: { equals: filtri.mesto, mode: "insensitive" as const } } } : {}),
+      ...(filtri.od || filtri.do
+        ? {
+            datum: {
+              ...(filtri.od ? { gte: new Date(`${filtri.od}T00:00:00Z`) } : {}),
+              ...(filtri.do ? { lte: new Date(`${filtri.do}T00:00:00Z`) } : {}),
+            },
+          }
+        : {}),
+    },
+    orderBy: { datum: "asc" },
+    include: vkljuci,
+  });
+
+  const rezultat = termini
+    .map((t) => ({
+      ...zaOdjemalca(t, false),
+      ujemaSe: t.zanri.some((z) => zanriBenda.includes(z.zanrId)),
+    }))
+    // ujemajoči na vrh, znotraj skupine ostane vrstni red po datumu
+    .sort((a, b) => Number(b.ujemaSe) - Number(a.ujemaSe));
+
+  // mesta vseh odprtih terminov, za izbiro v filtru
+  const mesta = await prisma.prizorisce.findMany({
+    where: { termini: { some: odprti } },
+    distinct: ["mesto"],
+    select: { mesto: true },
+    orderBy: { mesto: "asc" },
+  });
+
+  res.json({ termini: rezultat, mesta: mesta.map((m) => m.mesto) });
+});
+
 // termini na prizoriščih prijavljenega organizatorja
 terminiRouter.get("/mine", requireAuth, requireRole("ORGANIZATOR"), async (req, res) => {
   const termini = await prisma.termin.findMany({
