@@ -195,6 +195,47 @@ terminiRouter.get("/:id", optionalAuth, async (req, res) => {
   res.json({ termin: zaOdjemalca(termin, sKontaktom) });
 });
 
+type Konflikt = { clan: string; bend: string; prizorisce: string };
+
+// US-05: aktivni člani benda, ki imajo na isti datum že SPREJETO prijavo (s tem ali drugim bendom).
+// Prijave ODDANA in OZJI_IZBOR ne štejejo, ker še niso potrjene.
+async function konfliktiClanov(bendId: number, datum: Date): Promise<Konflikt[]> {
+  const aktivni = await prisma.clanBenda.findMany({
+    where: { bendId, status: "AKTIVEN" },
+    select: { uporabnikId: true },
+  });
+  const clani = aktivni.map((c) => c.uporabnikId);
+
+  const sprejete = await prisma.prijava.findMany({
+    where: {
+      status: "SPREJETA",
+      termin: { datum },
+      bend: { clani: { some: { uporabnikId: { in: clani }, status: "AKTIVEN" } } },
+    },
+    include: {
+      termin: { include: { prizorisce: { select: { ime: true } } } },
+      bend: {
+        include: {
+          clani: {
+            where: { uporabnikId: { in: clani }, status: "AKTIVEN" },
+            include: { uporabnik: { select: { prikaznoIme: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  return sprejete.flatMap((p) =>
+    p.bend.clani.map((c) => ({ clan: c.uporabnik.prikaznoIme, bend: p.bend.ime, prizorisce: p.termin.prizorisce.ime })),
+  );
+}
+
+function opisKonfliktov(konflikti: Konflikt[]): string {
+  return konflikti
+    .map((k) => `${k.clan} na ta dan že nastopa z bendom ${k.bend} na prizorišču ${k.prizorisce}.`)
+    .join(" ");
+}
+
 const prijavaShema = z.object({
   bendId: z.number({ error: "Izberite bend." }).int(),
   sporocilo: z
@@ -227,6 +268,11 @@ terminiRouter.post("/:id/applications", requireAuth, requireRole("GLASBENIK"), a
   const obstaja = await prisma.prijava.findUnique({ where: { terminId_bendId: { terminId, bendId } } });
   if (obstaja) throw new HttpNapaka(409, "Bend je na ta termin že prijavljen");
 
+  const konflikti = await konfliktiClanov(bendId, termin.datum);
+  if (konflikti.length > 0) {
+    throw new HttpNapaka(409, `Prijava ni mogoča. ${opisKonfliktov(konflikti)}`);
+  }
+
   try {
     const prijava = await prisma.prijava.create({
       data: { terminId, bendId, sporocilo, status: "ODDANA" },
@@ -237,4 +283,20 @@ terminiRouter.post("/:id/applications", requireAuth, requireRole("GLASBENIK"), a
     if ((err as { code?: string }).code === "P2002") throw new HttpNapaka(409, "Bend je na ta termin že prijavljen");
     throw err;
   }
+});
+
+// vnaprejšnje preverjanje konfliktov za izbrani bend, da stran lahko opozori pred oddajo
+terminiRouter.get("/:id/conflicts", requireAuth, requireRole("GLASBENIK"), async (req, res) => {
+  const terminId = Number(req.params.id);
+  const termin = Number.isInteger(terminId) && terminId > 0 ? await prisma.termin.findUnique({ where: { id: terminId } }) : null;
+  if (!termin) throw new HttpNapaka(404, "Termin ne obstaja.");
+
+  const bendId = Number(req.query.bandId);
+  const clanstvo = Number.isInteger(bendId)
+    ? await prisma.clanBenda.findUnique({ where: { bendId_uporabnikId: { bendId, uporabnikId: req.uporabnik!.id } } })
+    : null;
+  if (!clanstvo || clanstvo.status !== "AKTIVEN") throw new HttpNapaka(403, "Izbrani bend ni tvoj.");
+
+  const konflikti = await konfliktiClanov(bendId, termin.datum);
+  res.json({ konflikti, sporocilo: konflikti.length > 0 ? opisKonfliktov(konflikti) : null });
 });
