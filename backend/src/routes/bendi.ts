@@ -137,3 +137,37 @@ bendiRouter.post("/:id/invitation/decline", async (req, res) => {
   if (count === 0) throw new HttpNapaka(404, "Povabilo ne obstaja.");
   res.status(204).end();
 });
+
+// prijave benda, vidijo jih vsi aktivni člani
+bendiRouter.get("/:id/applications", async (req, res) => {
+  const bendId = idBenda(req.params.id);
+
+  const clanstvo = await prisma.clanBenda.findUnique({
+    where: { bendId_uporabnikId: { bendId, uporabnikId: req.uporabnik!.id } },
+  });
+  if (!clanstvo || clanstvo.status !== "AKTIVEN") {
+    throw new HttpNapaka(403, "Prijave benda vidijo samo njegovi člani.");
+  }
+
+  const prijave = await prisma.prijava.findMany({
+    where: { bendId },
+    orderBy: { ustvarjeno: "desc" },
+    include: { termin: { include: { prizorisce: { select: { ime: true, mesto: true } } } } },
+  });
+
+  res.json({
+    prijave: prijave.map((p) => ({
+      id: p.id,
+      status: p.status,
+      sporocilo: p.sporocilo,
+      oddana: p.ustvarjeno,
+      termin: {
+        id: p.termin.id,
+        datum: p.termin.datum.toISOString().slice(0, 10),
+        rokPrijave: p.termin.rokPrijave,
+        status: p.termin.status,
+        prizorisce: p.termin.prizorisce,
+      },
+    })),
+  });
+});
