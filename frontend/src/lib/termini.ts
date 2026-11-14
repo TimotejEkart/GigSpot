@@ -53,3 +53,21 @@ export function steviloBendov(n: number) {
   if (n === 3 || n === 4) return `${n} bende`
   return `${n} bendov`
 }
+
+export type StatusPrijave = 'ODDANA' | 'OZJI_IZBOR' | 'SPREJETA' | 'ZAVRNJENA' | 'UMAKNJENA' | 'ODPOVEDANA'
+
+export const statusiPrijave: Record<StatusPrijave, string> = {
+  ODDANA: 'Oddana',
+  OZJI_IZBOR: 'Ožji izbor',
+  SPREJETA: 'Sprejeta',
+  ZAVRNJENA: 'Zavrnjena',
+  UMAKNJENA: 'Umaknjena',
+  ODPOVEDANA: 'Odpovedana',
+}
+
+export type PrijavaBenda = {
+  id: number
+  status: StatusPrijave
+  sporocilo: string | null
+  termin: { id: number; datum: string; prizorisce: { ime: string; mesto: string } }
+}

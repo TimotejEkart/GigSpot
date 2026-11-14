@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, Empty, Field, Opozorilo, PageTitle, buttonClass, inputClass } from '../components/ui'
 import { ApiNapaka, api } from '../lib/api'
+import { formatDatum, statusiPrijave, type PrijavaBenda } from '../lib/termini'
 
 type Zanr = { id: number; ime: string }
 type Clan = { id: number; prikaznoIme: string; email: string; vlogaVBendu: 'VODJA' | 'CLAN'; status: 'POVABLJEN' | 'AKTIVEN' }
@@ -197,6 +199,13 @@ function KarticaBenda({ bend, poPovabilu }: { bend: Bend; poPovabilu: () => void
   const [email, setEmail] = useState('')
   const [sporocilo, setSporocilo] = useState<{ ok: boolean; besedilo: string } | null>(null)
   const [posiljam, setPosiljam] = useState(false)
+  const [prijave, setPrijave] = useState<PrijavaBenda[]>([])
+
+  useEffect(() => {
+    api<{ prijave: PrijavaBenda[] }>(`/bands/${bend.id}/applications`)
+      .then((o) => setPrijave(o.prijave))
+      .catch(() => setPrijave([]))
+  }, [bend.id])
 
   async function povabi(e: FormEvent) {
     e.preventDefault()
@@ -246,6 +255,24 @@ function KarticaBenda({ bend, poPovabilu }: { bend: Bend; poPovabilu: () => void
           </li>
         ))}
       </ul>
+
+      {prijave.length > 0 && (
+        <>
+          <h4 className="mt-5 mb-2 text-sm font-medium">Prijave na termine</h4>
+          <ul className="divide-y divide-line rounded-lg border border-line text-sm">
+            {prijave.map((p) => (
+              <li key={p.id} className="flex items-center justify-between px-4 py-2">
+                <Link to={`/termini/${p.termin.id}`} className="hover:text-accent">
+                  {formatDatum(p.termin.datum)} <span className="text-muted">· {p.termin.prizorisce.ime}, {p.termin.prizorisce.mesto}</span>
+                </Link>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs ${p.status === 'SPREJETA' ? 'bg-emerald-50 text-emerald-700' : p.status === 'ZAVRNJENA' ? 'bg-red-50 text-red-700' : 'border border-line'}`}>
+                  {statusiPrijave[p.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {bend.jeVodja && (
         <form onSubmit={povabi} noValidate className="mt-4 flex flex-wrap items-start gap-2">
