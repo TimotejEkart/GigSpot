@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Card, Empty, Field, buttonClass, inputClass } from '../components/ui'
+import { Card, Empty, buttonClass } from '../components/ui'
+import PrijavaBenda from '../components/PrijavaBenda'
 import { ApiNapaka, api } from '../lib/api'
 import { formatDatum, formatRok, opisPlacila, statusiTermina, steviloBendov, type Termin as TipTermina } from '../lib/termini'
 import { useAuth } from '../auth/kontekst'
 
-// Podrobnosti termina in prijava benda (wireframe 1).
+// podrobnosti termina in prijava benda
 export default function Termin() {
   const { id } = useParams()
   const { uporabnik } = useAuth()
@@ -71,22 +72,7 @@ export default function Termin() {
           </Card>
         </div>
 
-        {uporabnik?.vloga === 'GLASBENIK' && (
-          <Card className="space-y-5">
-            <h2 className="text-xl font-semibold">Prijava benda</h2>
-            <Field label="Bend">
-              <select className={inputClass} disabled>
-                <option>Izberi bend</option>
-              </select>
-            </Field>
-            <Field label="Sporočilo organizatorju">
-              <textarea rows={4} className={inputClass} disabled />
-            </Field>
-            <button className={`${buttonClass} w-full`} disabled>
-              Prijavi
-            </button>
-          </Card>
-        )}
+        {uporabnik?.vloga === 'GLASBENIK' && <PrijavaBenda termin={termin} />}
         {uporabnik?.vloga === 'ORGANIZATOR' && (
           <Card className="h-fit space-y-3">
             <h2 className="text-xl font-semibold">Prijave bendov</h2>
