@@ -194,3 +194,47 @@ terminiRouter.get("/:id", optionalAuth, async (req, res) => {
   const sKontaktom = vloga === "GLASBENIK" || vloga === "ORGANIZATOR";
   res.json({ termin: zaOdjemalca(termin, sKontaktom) });
 });
+
+const prijavaShema = z.object({
+  bendId: z.number({ error: "Izberite bend." }).int(),
+  sporocilo: z
+    .string()
+    .trim()
+    .max(500, "Sporočilo je lahko dolgo največ 500 znakov.")
+    .nullish()
+    .transform((v) => v || null),
+});
+
+// oddaja prijave benda na termin (US-04), samo vodja benda
+terminiRouter.post("/:id/applications", requireAuth, requireRole("GLASBENIK"), async (req, res) => {
+  const terminId = Number(req.params.id);
+  const termin = Number.isInteger(terminId) && terminId > 0 ? await prisma.termin.findUnique({ where: { id: terminId } }) : null;
+  if (!termin) throw new HttpNapaka(404, "Termin ne obstaja.");
+
+  const { bendId, sporocilo } = prijavaShema.parse(req.body);
+
+  const clanstvo = await prisma.clanBenda.findUnique({
+    where: { bendId_uporabnikId: { bendId, uporabnikId: req.uporabnik!.id } },
+  });
+  if (!clanstvo || clanstvo.status !== "AKTIVEN" || clanstvo.vlogaVBendu !== "VODJA") {
+    throw new HttpNapaka(403, "Prijavo lahko odda samo vodja benda.");
+  }
+
+  if (termin.status !== "ODPRT" || termin.rokPrijave <= new Date()) {
+    throw new HttpNapaka(400, "Rok za prijave je potekel.");
+  }
+
+  const obstaja = await prisma.prijava.findUnique({ where: { terminId_bendId: { terminId, bendId } } });
+  if (obstaja) throw new HttpNapaka(409, "Bend je na ta termin že prijavljen");
+
+  try {
+    const prijava = await prisma.prijava.create({
+      data: { terminId, bendId, sporocilo, status: "ODDANA" },
+    });
+    res.status(201).json({ prijava });
+  } catch (err) {
+    // hkratna dvojna prijava: unikatni par termin + bend v bazi
+    if ((err as { code?: string }).code === "P2002") throw new HttpNapaka(409, "Bend je na ta termin že prijavljen");
+    throw err;
+  }
+});

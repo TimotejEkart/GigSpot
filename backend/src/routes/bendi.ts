@@ -53,7 +53,7 @@ bendiRouter.post("/", async (req, res) => {
   res.status(201).json({ bend });
 });
 
-// bendi, v katerih je uporabnik aktiven član, in njegova odprta povabila
+// bend v katerih je uporabnik aktiven član in njegova odprta povabila
 bendiRouter.get("/mine", async (req, res) => {
   const uporabnikId = req.uporabnik!.id;
 
@@ -86,7 +86,7 @@ bendiRouter.get("/mine", async (req, res) => {
   });
 });
 
-// vodja povabi glasbenika po e-mailu
+// vodja povabi glasbenika po emailu
 bendiRouter.post("/:id/invite", async (req, res) => {
   const bendId = idBenda(req.params.id);
   const { email } = povabiloShema.parse(req.body);
