@@ -199,7 +199,7 @@ type Konflikt = { clan: string; bend: string; prizorisce: string };
 
 // US-05: aktivni člani benda, ki imajo na isti datum že SPREJETO prijavo (s tem ali drugim bendom).
 // Prijave ODDANA in OZJI_IZBOR ne štejejo, ker še niso potrjene.
-async function konfliktiClanov(bendId: number, datum: Date): Promise<Konflikt[]> {
+export async function konfliktiClanov(bendId: number, datum: Date): Promise<Konflikt[]> {
   const aktivni = await prisma.clanBenda.findMany({
     where: { bendId, status: "AKTIVEN" },
     select: { uporabnikId: true },
@@ -230,7 +230,7 @@ async function konfliktiClanov(bendId: number, datum: Date): Promise<Konflikt[]>
   );
 }
 
-function opisKonfliktov(konflikti: Konflikt[]): string {
+export function opisKonfliktov(konflikti: Konflikt[]): string {
   return konflikti
     .map((k) => `${k.clan} na ta dan že nastopa z bendom ${k.bend} na prizorišču ${k.prizorisce}.`)
     .join(" ");
@@ -285,7 +285,7 @@ terminiRouter.post("/:id/applications", requireAuth, requireRole("GLASBENIK"), a
   }
 });
 
-// vnaprejšnje preverjanje konfliktov za izbrani bend, da stran lahko opozori pred oddajo
+// preverjanje konfliktov za izbrani bend, da stran lahko opozori pred oddajo
 terminiRouter.get("/:id/conflicts", requireAuth, requireRole("GLASBENIK"), async (req, res) => {
   const terminId = Number(req.params.id);
   const termin = Number.isInteger(terminId) && terminId > 0 ? await prisma.termin.findUnique({ where: { id: terminId } }) : null;
@@ -300,3 +300,57 @@ terminiRouter.get("/:id/conflicts", requireAuth, requireRole("GLASBENIK"), async
   const konflikti = await konfliktiClanov(bendId, termin.datum);
   res.json({ konflikti, sporocilo: konflikti.length > 0 ? opisKonfliktov(konflikti) : null });
 });
+
+// prijave na termin, samo za lastnika prizorišča
+terminiRouter.get("/:id/applications", requireAuth, requireRole("ORGANIZATOR"), async (req, res) => {
+  const terminId = Number(req.params.id);
+  const termin =
+    Number.isInteger(terminId) && terminId > 0
+      ? await prisma.termin.findUnique({ where: { id: terminId }, include: { prizorisce: true } })
+      : null;
+  if (!termin) throw new HttpNapaka(404, "Termin ne obstaja.");
+  if (termin.prizorisce.lastnikId !== req.uporabnik!.id) {
+    throw new HttpNapaka(403, "Prijave vidi samo lastnik prizorišča.");
+  }
+
+  const prijave = await prisma.prijava.findMany({
+    where: { terminId },
+    orderBy: { ustvarjeno: "asc" },
+    include: {
+      bend: {
+        include: {
+          zanri: { include: { zanr: true } },
+          clani: {
+            where: { vlogaVBendu: "VODJA" },
+            include: { uporabnik: { select: { prikaznoIme: true, email: true, telefon: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  res.json({
+    termin: {
+      id: termin.id,
+      datum: termin.datum.toISOString().slice(0, 10),
+      stBendov: termin.stBendov,
+      status: termin.status,
+      prizorisce: { id: termin.prizorisce.id, ime: termin.prizorisce.ime },
+      sprejetih: prijave.filter((p) => p.status === "SPREJETA").length,
+    },
+    prijave: prijave.map((p) => ({
+      id: p.id,
+      status: p.status,
+      sporocilo: p.sporocilo,
+      oddana: p.ustvarjeno,
+      bend: {
+        id: p.bend.id,
+        ime: p.bend.ime,
+        mesto: p.bend.mesto,
+        zanri: p.bend.zanri.map((z) => z.zanr),
+      },
+      vodja: p.bend.clani[0]?.uporabnik ?? null,
+    })),
+  });
+});
+
