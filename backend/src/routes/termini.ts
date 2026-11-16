@@ -261,9 +261,8 @@ terminiRouter.post("/:id/applications", requireAuth, requireRole("GLASBENIK"), a
     throw new HttpNapaka(403, "Prijavo lahko odda samo vodja benda.");
   }
 
-  if (termin.status !== "ODPRT" || termin.rokPrijave <= new Date()) {
-    throw new HttpNapaka(400, "Rok za prijave je potekel.");
-  }
+  if (termin.status !== "ODPRT") throw new HttpNapaka(400, "Prijave na ta termin niso več mogoče.");
+  if (termin.rokPrijave <= new Date()) throw new HttpNapaka(400, "Rok za prijave je potekel.");
 
   const obstaja = await prisma.prijava.findUnique({ where: { terminId_bendId: { terminId, bendId } } });
   if (obstaja) throw new HttpNapaka(409, "Bend je na ta termin že prijavljen");
@@ -354,3 +353,41 @@ terminiRouter.get("/:id/applications", requireAuth, requireRole("ORGANIZATOR"), 
   });
 });
 
+
+// objava koncerta, potrebna je vsaj ena sprejeta prijava
+terminiRouter.post("/:id/publish", requireAuth, requireRole("ORGANIZATOR"), async (req, res) => {
+  const terminId = Number(req.params.id);
+  const termin =
+    Number.isInteger(terminId) && terminId > 0
+      ? await prisma.termin.findUnique({ where: { id: terminId }, include: { prizorisce: true } })
+      : null;
+  if (!termin) throw new HttpNapaka(404, "Termin ne obstaja.");
+  if (termin.prizorisce.lastnikId !== req.uporabnik!.id) {
+    throw new HttpNapaka(403, "Koncert lahko objavi samo lastnik prizorišča.");
+  }
+  if (termin.status !== "ODPRT" && termin.status !== "ZAPRT") {
+    throw new HttpNapaka(400, "Tega termina ni mogoče objaviti.");
+  }
+
+  const sprejete = await prisma.prijava.findMany({
+    where: { terminId, status: "SPREJETA" },
+    include: { bend: { select: { id: true, ime: true } } },
+  });
+  if (sprejete.length === 0) {
+    throw new HttpNapaka(400, "Za objavo mora biti sprejeta vsaj ena prijava.");
+  }
+
+  // zasedba je potrjena, neobdelane prijave se zavrnejo
+  await prisma.$transaction([
+    prisma.termin.update({ where: { id: terminId }, data: { status: "OBJAVLJEN" } }),
+    prisma.prijava.updateMany({
+      where: { terminId, status: { in: ["ODDANA", "OZJI_IZBOR"] } },
+      data: { status: "ZAVRNJENA" },
+    }),
+  ]);
+
+  res.json({
+    termin: { id: terminId, status: "OBJAVLJEN" },
+    zasedba: sprejete.map((p) => p.bend),
+  });
+});
